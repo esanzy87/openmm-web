@@ -1,0 +1,73 @@
+{% extends 'webmd/base.html' %}
+{% load static %}
+
+{% block webmd_content %}
+    <div class="row">
+        <div class="col-12">
+            <h5>Work #{{ work.id }}</h5>
+            <table class="table" style="max-width: 400px;">
+                <tbody>
+                <tr>
+                    <th>Subject</th>
+                    <td>{{ work.name }}</td>
+                </tr>
+                <tr>
+                    <th>File name</th>
+                    <td>{{ work.filename }}</td>
+                </tr>
+                <tr>
+                    <th>buffer size</th>
+                    <td>{{ work.buffer_size }} Å</td>
+                </tr>
+                <tr>
+                    <th>solvent model</th>
+                    <td>{{ work.solvent_model }}</td>
+                </tr>
+                <tr>
+                    <th>cation</th>
+                    <td>{{ work.cation }}</td>
+                </tr>
+                <tr>
+                    <th>anion</th>
+                    <td>{{ work.anion }}</td>
+                </tr>
+                <tr>
+                    <th>Forcefield</th>
+                    <td>ff99sbildn</td>
+                </tr>
+                <tr>
+                    <th>Sequence</th>
+                    <td><pre>{{ work.sequence }}</pre></td>
+                </tr>
+                </tbody>
+            </table>
+            <form method="post" action="" id="new_name_form">
+                {% csrf_token %}
+                <input type="hidden" name="new_name" id="new_name" value="{{ work.name }}"/>
+            </form>
+            <a class="btn btn-outline-primary btn-sm" id="change_subject" href="">Change subject</a>
+            <br/>
+            <br/>
+            <br/>
+        </div>
+    </div>
+    <script type="text/javascript">
+        (function () {
+            var $new_name = $('#new_name');
+            var $new_name_form = $('#new_name_form');
+            var $change_subject = $('#change_subject');
+
+            $change_subject.on('click', function (e) {
+                e.preventDefault();
+
+                var new_name = prompt("Please enter new subject for Work #{{ work.id }}");
+                if (new_name) {
+                    $new_name.val(new_name);
+                    $new_name_form.submit();
+                } else {
+                    alert("Empty string not allowed. Subject not changed.")
+                }
+            });
+        })();
+    </script>
+{% endblock %}

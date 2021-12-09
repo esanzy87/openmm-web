@@ -1,0 +1,138 @@
+<script type="text/javascript">
+    (function ($) {
+
+        var $min_maxcyc1 = $('#maxcyc1');
+        var $min_maxcyc2 = $('#maxcyc2');
+
+        var $eq_init_temp = $('#init_temp');
+        var $eq_ref_temp = $('#ref_temp');
+        var $eq_nstlim1 = $('#nstlim1');
+        var $eq_nstlim2 = $('#nstlim2');
+
+        var $md_ntb = $('#ntb');
+        var $md_pressure = $('#pressure');
+        var $md_nstlim = $('#nstlim');
+        var $md_repeat = $('#repeat');
+        var $md_ref_temp = $('#md_ref_temp');
+
+        var $status_key = $('input[name=status_key]');
+
+        $(document).ready(function () {
+            window.deleteWork = function (workId) {
+                var answer = confirm('Are you sure to delete this work?');
+
+                if (answer) {
+                    axios.post('/webmd/works/' + workId + '/delete/')
+                        .then(function (response) {
+                            if (response.data.result === 'success') {
+                                window.location.reload();
+                            }
+                        });
+                }
+            };
+
+            window.restoreWork = function (workId) {
+                var answer = confirm('Are you sure to restore this work?');
+
+                if (answer) {
+                    axios.post('/webmd/works/' + workId + '/delete/')
+                        .then(function (response) {
+                            if (response.data.result === 'success') {
+                                window.location.reload();
+                            }
+                        });
+                }
+            };
+
+            $('#run_min_modal').on('show.bs.modal', function (e) {
+                var opener = $(e.relatedTarget);
+                var workId = opener.data('work-id');
+
+                window.run_min = function () {
+                    axios.post('/webmd/works/' + workId + '/run_min/', {
+                        'maxcyc1': $min_maxcyc1.val(),
+                        'maxcyc2': $min_maxcyc2.val()
+                    }).then(function (response) {
+                        if (response.data.result === 'success') {
+                            window.location.reload();
+                        }
+                    });
+                };
+            });
+
+            $('#run_eq_modal').on('show.bs.modal', function (e) {
+                var opener = $(e.relatedTarget);
+                var workId = opener.data('work-id');
+
+                window.run_eq = function () {
+                    axios.post('/webmd/works/' + workId + '/run_eq/', {
+                        'init_temp': $eq_init_temp.val(),
+                        'ref_temp': $eq_ref_temp.val(),
+                        'nstlim1': $eq_nstlim1.val(),
+                        'nstlim2': $eq_nstlim2.val()
+                    }).then(function (response) {
+                        if (response.data.result === 'success') {
+                            window.location.reload();
+                        }
+                    })
+                };
+            });
+
+            $('#run_md_modal').on('show.bs.modal', function (e) {
+                var opener = $(e.relatedTarget);
+                var workId = opener.data('work-id');
+                var mdSerial = opener.data('md-serial');
+                var mdSerial = opener.data('md-serial');
+
+                window.run_md = function () {
+                    axios.post('/webmd/works/' + workId + '/run_md/' + mdSerial + '/', {
+                        'ntb': $md_ntb.val(),
+                        'pressure': $md_pressure.val(),
+                        'nstlim': $md_nstlim.val(),
+                        'ref_temp': $md_ref_temp.val(),
+                        'repeat': $md_repeat.val()
+                    }).then(function (response) {
+                        if (response.data.result === 'success') {
+                            window.location.reload();
+                        }
+                    });
+                };
+            });
+
+            $('[data-toggle="tooltip"]').tooltip();
+
+            $eq_nstlim1.on('change', function (e) {
+                $('#nstlim1_val').html(e.target.value * 0.002 + ' ps');
+            });
+
+            $eq_nstlim2.on('change', function (e) {
+                $('#nstlim2_val').html(e.target.value * 0.002 + ' ps');
+            });
+
+            $md_nstlim.on('change', function (e) {
+                $('#nstlim_val').html(e.target.value * 0.002 + ' ps');
+            });
+
+            if ($status_key !== undefined) {
+                var check_list = [];
+                for (var i = 0; i < $status_key.length; i++) {
+                    if ($status_key[i].value.indexOf('running') > -1) {
+                        check_list.push('/webmd/works/' + $($status_key[i]).data('work-id') + '/check-status-api/');
+                        check_list.push('/webmd/works/' + $($status_key[i]).data('work-id') + '/check-status-api/');
+                    }
+                }
+
+                setInterval(function () {
+                    for (var i = 0; i < check_list.length; i++) {
+                        axios.get(check_list[i])
+                            .then(function (response) {
+                                if (response.data.key.indexOf('running') < 0) {
+                                    window.location.reload();
+                                }
+                            });
+                    }
+                }, 5000);
+            }
+        });
+    }) ($);
+</script>

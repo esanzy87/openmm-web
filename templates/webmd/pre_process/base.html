@@ -1,0 +1,50 @@
+{% extends 'webmd/base.html' %}
+{% load static %}
+
+
+{% block customstyle %}
+  {{ block.super }}
+  <style>
+      #ngl-stage {
+          height: 450px;
+      }
+  </style>
+{% endblock %}
+
+
+{% block webmd_content %}
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col col-md-4" id="pre_process_control">
+        {% block pre_process_control %}
+        {% endblock %}
+      </div>
+      <div class="col col-md-8">
+        <div id="ngl-stage"></div>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
+
+{% block custom_script %}
+  <script type="text/javascript">
+    (function ($, axios, NGL) {
+      'use strict';
+
+      var stage = new NGL.Stage('ngl-stage');
+      window.addEventListener("resize", function (e) {
+        stage.handleResize();
+      }, false);
+
+      stage.viewer.scene.background = new THREE.Color(0xefefef);
+      axios.get(`/get-pdb-content-api?step=${step}&name=${name}`).then(function (response) {
+        var pdb = new Blob([response.data], {type: 'text/plain'});
+        stage.loadFile(pdb, {ext: 'pdb'}).then(function (component) {
+          window.pdb_component = component;
+          reload(component);
+        });
+      });
+    })($, axios, NGL);
+  </script>
+{% endblock %}

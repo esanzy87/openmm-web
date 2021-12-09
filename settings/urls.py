@@ -15,7 +15,16 @@ Including another URLconf
 """
 # from django.contrib import admin
 from django.urls import path
+from core import views as core
 
 urlpatterns = [
     # path('admin/', admin.site.urls),
+    path('', core.root_view),
+    path('get-pdb-content-api', core.get_pdb_content_api),
+    path('topologies/', core.topologies_view),
+    path('topologies/new/', core.new_topology_rcsb_view),
+    path('topologies/pre-process/step-1/', core.pre_process_select_model_and_chains),
+    path('topologies/pre-process/step-2/', core.pre_process_convert_non_standard_residues),
+    path('topologies/pre-process/step-3/', core.pre_process_done),
+    path('topologies/structure/', core.topology_structure_viewer),
 ]

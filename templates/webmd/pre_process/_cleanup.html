@@ -1,0 +1,77 @@
+{% extends 'webmd/base.html' %}
+{% load static %}
+
+{% block webmd_content %}
+  <div class="row h-100">
+    <div class="col-6" style="overflow-y: scroll">
+      <div style="max-width: 300px;">
+        <h3>Clean up</h3>
+        <form method="POST">
+          {% csrf_token %}
+
+          {% if work.icode_residues %}
+            <h5>ambiguous residues</h5>
+            {% for key, residues in work.icode_residues %}
+              {{ key.0 }} {{ key.1 }}
+              <ul class="list-group">
+                {% for res in residues %}
+                <li class="list-group-item">
+                  <label>
+                    <input type="radio" name="{{ key }}" value="{{ res }}"
+                           {% if res == residues.0 %}checked{% endif %} /> {{ res.2 }} {{ res.3 }}
+                  </label>
+                </li>
+                {% endfor %}
+              </ul><br/>
+            {% endfor %}
+          {% endif %}
+
+          {% if work.altloc_atoms %}
+            <h5>ambiguous atoms</h5>
+            {% for key, atoms in work.altloc_atoms %}
+            {{ key.0 }} {{ key.1 }} {{ key.2 }} {{ key.3 }}
+            <ul class="list-group">
+              {% for atom in atoms %}
+                <li class="list-group-item">
+                  <label><input type="radio" name="{{ key }}" value="{{ atom }}" {% if atom.4 == 'A' %}checked{% endif %} /> {{ atom.4 }}</label>
+                </li>
+              {% endfor %}
+            </ul><br/>
+            {% endfor %}
+          {% endif %}
+
+          {% if work.hetero_residues %}
+            <h5>ligands</h5>
+            <ul class="list-group">
+            <li class="list-group-item">
+              <label><input type="radio" name="ligand" value="-1" checked /> Remove all</label>
+            </li>
+            <!--
+            {% for chain, residues in work.hetero_residues.items %}
+              {% for residue in residues %}
+                <li class="list-group-item">
+                  <label><input type="radio" name="ligand" value="{{ chain }}{{ residue.0 }}"> {{ chain }} {{ residue.0 }} {{ residue.1 }}</label>
+                </li>
+              {% endfor %}
+            {% endfor %}
+            -->
+            </ul><br/>
+          {% endif %}
+
+          {% if not work.altloc_atoms and not work.icode_residues and not work.hetero_residues %}
+            <p>There is nothing to clean up</p>
+          {% endif %}
+          <br/>
+          <a href="{% url 'webmd_pre_process_select_model_and_chains' work_id=work.id %}" class="btn btn-outline-primary">Previous</a>
+          <button class="btn btn-outline-primary">Next</button>
+          <br/>
+        </form>
+      </div>
+    </div>
+    <div class="col" style="max-width: 640px">
+      <div id="ngl-stage" style="width: 100%; height: 400px;"></div>
+      <pre id="pdb_content" style="display: none">{{ pdb_content }}</pre>
+    </div>
+  </div>
+  <script type="text/javascript" src="{% static 'js/webmd/pre_process/cleanup.js' %}"></script>
+{% endblock %}

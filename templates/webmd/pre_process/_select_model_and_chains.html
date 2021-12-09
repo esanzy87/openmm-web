@@ -1,0 +1,124 @@
+{% extends 'webmd/base.html' %}
+{% load static %}
+
+{% block webmd_content %}
+    <div class="row">
+        <div class="col-6">
+            <div style="max-width: 400px">
+                <form method="POST">
+                    {% csrf_token %}
+                    <h3>Select model</h3>
+                    <select class="form-control" name="selected_model" id="selected_model" title="selected_model">
+                        {% for model in work.models %}
+                            <option>{{ model }}</option>
+                        {% endfor %}
+                    </select><br/>
+
+                    <h3>Select chains</h3>
+                    <ul class="list-group">
+                        {% for chain in work.chains %}
+                            <li class="list-group-item">
+                                <label style="width: 100%">
+                                    <input type="checkbox" name="selected_chains" value="{{ chain }}"
+                                           checked/> {{ chain }}
+                                </label>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    <br/>
+                    {% if work.hetero_residues %}
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th>Residue</th>
+                            <th><span data-feather="eye"></span></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for res in work.hetero_residues %}
+                        <tr>
+                        <td>{{ res.0 }} {{ res.1 }} {{ res.2 }}</td>
+                        <td><input type="checkbox" checked /></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                        <p>REMARK: Heterogeneous residues will be deleted during this step.</p>
+                    {% endif %}
+
+                    <button class="btn btn-outline-primary">Next</button>
+                </form>
+            </div>
+        </div>
+        <div class="col" style="max-width: 640px">
+            <div id="ngl-stage" style="width: 100%; height: 400px;"></div>
+            <pre id="pdb_content"
+                 style="font-size: 8px; height: 400px; overflow-y: scroll; display: none">{{ pdb_content }}</pre>
+        </div>
+    </div>
+    <script type="text/javascript" src="{% static 'libs/three.js' %}"></script>
+    <script type="text/javascript">
+        (function ($, NGL) {
+            'use strict';
+
+            var stage = null;
+            var pdb_content = $('#pdb_content').html();
+
+            var schemeId = NGL.ColormakerRegistry.addScheme(function (params) {
+                this.atomColor = function (atom) {
+                    return 0x7FFFD4  // aquamarine
+                }
+            });
+
+            var $selectedChains = $('input[name=selected_chains]');
+            var $selectedModel = $('#selected_model');
+
+            var pdb_component = null;
+
+            function reload(comp) {
+                comp.removeAllRepresentations();
+                comp.addRepresentation('base');
+
+                for (var i = 0; i < $selectedChains.length; i++) {
+                    if (!$selectedChains[i].checked)
+                        continue;
+
+                    var chain = $selectedChains[i].value;
+                    var sele = ':' + chain + ' and /' + (Number($selectedModel.val()) - 1);
+                    comp.addRepresentation('cartoon', {colorScheme: schemeId, sele: sele + ' and protein'});
+                    comp.addRepresentation('ball+stick', {sele: sele + ' and not protein and not water and not ion'});
+                    // comp.addRepresentation('ball+stick', {sele: sele + ' and water'});
+                    comp.autoView();
+                }
+                comp.autoView();
+            }
+
+            $(document).ready(function () {
+                stage = new NGL.Stage('ngl-stage');
+
+                window.addEventListener("resize", function (e) {
+                    stage.handleResize()
+                }, false);
+
+                stage.viewer.scene.background = new THREE.Color(0xefefef);
+
+                var pdb = new Blob([pdb_content], {type: 'text/plain'});
+                stage.loadFile(pdb, {ext: 'pdb'})
+                    .then(function (comp) {
+                        pdb_component = comp;
+                        reload(comp);
+                    });
+            });
+
+            $selectedModel.change(function (e) {
+                reload(pdb_component);
+            });
+
+            for (var j = 0; j < $selectedChains.length; j++) {
+                $selectedChains[j].addEventListener('change', function (e) {
+                    reload(pdb_component);
+                });
+            }
+        })($, NGL);
+    </script>
+{% endblock %}

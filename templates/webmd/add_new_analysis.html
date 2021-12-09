@@ -1,0 +1,74 @@
+{% extends 'webmd/base.html' %}
+
+{% block webmd_content %}
+  <div class="row">
+    <div class="col-12 border-bottom" style="padding-bottom: 8px;">
+      <h2>
+        Add new analysis
+        <div class="float-right">
+          <a class="btn btn-outline-primary" href="{% url 'webmd_analyses' work_id=work.id %}">Back to analyses</a>
+        </div>
+      </h2>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col" style="max-width: 400px;">
+      <br/>
+      <form method="POST">
+        {% csrf_token %}
+        <h3>Select trajectories</h3>
+        <ul class="list-group" style="height: 200px; overflow-y: scroll">
+          {% for serial in work.completed_md_serials %}
+            <li class="list-group-item" style="padding: 8px">
+              <label for="trajin_{{ serial }}" style="width: 100%">
+                <input type="checkbox" name="trajin" id="trajin_{{ serial }}" value="{{ serial }}" checked> MD #{{ serial }}
+              </label>
+            </li>
+          {% endfor %}
+        </ul><br/>
+
+        <h3>Select analysis method</h3>
+        <select name="method" id="method" title="select analysis method" class="form-control">
+          <option value="rmsd">Root Mean Square Deviation (RMSD)</option>
+          <option value="rmsf">Root Mean Square Fluctuation (RMSF)</option>
+          <option value="radgyr">Radius of gyration (RADGYR)</option>
+          <option value="gsolv">Solvation Free Energy</option>
+          <option value="sasa">Solvent Accessible Surface Area (SASA)</option>
+          <option value="eu">Protein Internal Energy (Eu)</option>
+        </select><br/>
+        <br/>
+
+        <div id="select_chain" style="display: none">
+            <h3>Select protein chain</h3>
+            <ul class="list-group">
+                {% for chain in work.chains %}
+
+                <li class="list-group-item">
+                    <label style="width: 100%">
+                        <input type="checkbox" name="selected_chains" value="{{ forloop.counter0 }}" checked/> {{ chain }}
+                    </label>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <input type="hidden" name="mask" value="protein and name CA" />
+        <br/>
+        <button class="btn btn-primary">Submit</button><br/>
+        <br/>
+      </form>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+      (function () {
+          $('#method').on('change', function () {
+             if ($(this).val() === 'eu' || $(this).val() === 'gsolv') {
+                 $('#select_chain').show();
+             } else {
+                 $('#select_chain').hide();
+             }
+          });
+      }) ();
+  </script>
+{% endblock %}

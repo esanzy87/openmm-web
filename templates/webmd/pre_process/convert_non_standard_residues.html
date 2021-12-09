@@ -1,0 +1,287 @@
+{% extends 'webmd/pre_process/base.html' %}
+{% load static %}
+
+{% block pre_process_control %}
+  <h3>Building missing informations</h3>
+  <br/>
+  <form method="POST">
+    {% csrf_token %}
+    {% if work.non_standard_residues %}
+      <h5>Non standard residues</h5>
+      <table class="table">
+        <thead>
+        <tr>
+          <th colspan="2">Non standard residue</th>
+          <th>Mutation candidate</th>
+          <th><span data-feather="eye"></span></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for non_standard_residue in work.non_standard_residues %}
+          <tr>
+            <td>{{ non_standard_residue.0.chain.id }} {{ non_standard_residue.0.id }} {{ non_standard_residue.0.name }}</td>
+            <td><span data-feather="arrow-right"></span></td>
+            <td>
+              <select class="form-control-sm" disabled
+                      title="Mutation candidate for [{{ non_standard_residue.0.chain.id }} {{ non_standard_residue.0.id }} {{ non_standard_residue.0.name }}]">
+                <option>GLY</option>
+                <option>ALA</option>
+                <option>ARG</option>
+                <option>ASN</option>
+                <option
+                  {% if non_standard_residue.0.name == 'PDS' or non_standard_residue.0.name == 'PHL' %}selected{% endif %}>
+                  ASP
+                </option>
+                <option>CYS</option>
+                <option>GLN</option>
+                <option {% if non_standard_residue.0.name == 'GMA' %}selected{% endif %}>
+                  GLU
+                </option>
+
+                <option>HIS</option>
+                <option>ILE</option>
+                <option>LEU</option>
+                <option {% if non_standard_residue.0.name == 'MLY' %}selected{% endif %}>
+                  LYS
+                </option>
+                <option {% if non_standard_residue.0.name == 'MSE' %}selected{% endif %}>
+                  MET
+                </option>
+                <option>PHE</option>
+                <option>PRO</option>
+                <option {% if non_standard_residue.0.name == 'SEP' %}selected{% endif %}>
+                  SER
+                </option>
+                <option {% if non_standard_residue.0.name == 'TPO' %}selected{% endif %}>
+                  THR
+                </option>
+                <option>TRP</option>
+                <option {% if non_standard_residue.0.name == 'PTR' %}selected{% endif %}>
+                  TYR
+                </option>
+                <option>VAL</option>
+                <option>HID</option>
+                <option>HIE</option>
+                <option>HIN</option>
+                <option>HIP</option>
+                <option
+                  {% if non_standard_residue.0.name == 'CSP' or non_standard_residue.0.name == 'OCS' %}selected{% endif %}>
+                  CYS
+                </option>
+                <option>CYX</option>
+                <option>ASH</option>
+                <option>GLH</option>
+                <option>LYH</option>
+                <option>ACE</option>
+                <option>NME</option>
+                <option>GL4</option>
+                <option>AS4</option>
+              </select>
+            </td>
+            <td><input type="checkbox" name="non_standard_residue"/></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p>REMARK: Checking on <span data-feather="eye"></span> column, You can show or hide side chain of residue on
+        Visualization pane.</p>
+      <p>REMARK: Non standard residues will be mutated to their standard version automatically.</p>
+      <br/>
+    {% endif %}
+
+    {% if work.disulfide_bond_candidates %}
+      <h5>Disulfide bonds</h5>
+      <table class="table">
+        <thead>
+        <tr>
+          <th colspan="4">Disulfide bond candidate</th>
+          <th>Distance</th>
+          <th><span data-feather="eye"></span></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for cand in work.disulfide_bond_candidates %}
+          <tr>
+            <td>{{ cand.0 }}</td>
+            <td>{{ cand.1.id }} {{ cand.1.name }}</td>
+            <td><span data-feather="arrow-right"></span></td>
+            <td>{{ cand.2.id }} {{ cand.2.name }}</td>
+            <td>{{ cand.3 | floatformat:-4 }} Å</td>
+            <td><input type="checkbox" value="{{ forloop.counter0 }}" class="cand"
+                       title="{{ cand.0 }} {{ cand.1.id }} {{ cand.1.name }} -> {{ cand.2.id }} {{ cand.2.name }}"
+                       checked name="cands"/></td>
+          </tr>
+
+        {% endfor %}
+        </tbody>
+      </table>
+      <p>REMARK: Checking on <span data-feather="eye"></span> column, You can show or hide side chain of residues and
+        their distance on Visualization pane.</p>
+      <p>REMARK: Disulfide bond listed above will be built during this step.</p>
+    {% endif %}
+
+    {% if work.unknown_protonation_states %}
+      <h5>Unknown protonation states</h5>
+      <table class="table">
+        <thead>
+        <tr>
+          <th colspan="2">Residue</th>
+          <th>Protonation state</th>
+          <th><span data-feather="eye"></span></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for res in work.unknown_protonation_states %}
+          <tr>
+            <td>{{ res.chain.id }} {{ res.id }} {{ res.name }}</td>
+            <td><span data-feather="arrow-right"></span></td>
+            <td>
+              <select class="form-control-sm" name="{{ res.chain.id }} {{ res.id }} {{ res.name }}"
+                      title="{{ res.chain.id }} {{ res.id }} {{ res.name }}">
+                <option value="HIS">(automatic)</option>
+                <option>HIE</option>
+                <option>HIP</option>
+                <option>HID</option>
+              </select>
+            </td>
+            <td><input type="checkbox" class="histidine" value="{{ forloop.counter0 }}"
+                       title="{{ res.chain.id }} {{ res.id }} {{ res.name }}"/></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p>REMARK: Checking on <span data-feather="eye"></span> column, You can show or hide side chain of residue on
+        Visualization pane.</p>
+      <p>REMARK: If you chose (automatic) option, system will determine protonation state
+        of histidine suitable for pH = 7.0. If a histidine is not charged,
+        system will chose among HIE or HID which makes hydrogen bond better within given comformation.
+      </p>
+    {% endif %}
+
+    {% if work.solvent_ions %}
+      <h5>Solvent ions</h5>
+      <table class="table">
+        <thead>
+        <tr>
+          <th>Solvent ion</th>
+          <th>Keep ?</th>
+          <th><span data-feather="eye"></span></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for ion in work.solvent_ions %}
+          <tr>
+            <td>{{ ion.0 }} {{ ion.1 }}</td>
+            <td><input type="checkbox"
+                       {% if ion.1 != 'NA' and ion.1 != 'CL' and ion.1 != 'K' and ion.1 != 'K+' %}disabled{% endif %}/>
+            </td>
+            <td><input type="checkbox"/></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% if not work.disulfide_bond_candidates and not work.unknown_protonation_states %}
+      <p>There is nothing to determine</p>
+    {% endif %}
+
+    <a href="/topologies/pre-process/step-1/?name={{ work.name }}"
+       class="btn btn-outline-primary">Previous</a>
+    <button class="btn btn-outline-primary">Next</button>
+  </form>
+  <br/>
+{% endblock %}
+
+{% block custom_script %}
+  <script type="text/javascript">
+    var step = 'step2';
+
+    var nonStandardResidues = [
+      {% for res in work.non_standard_residues %}
+        ['{{ res.0.id }}:{{ res.0.chain.id }}', false],
+      {% endfor %}
+    ];
+    // console.log(nonStandardResidues);
+
+    var disulfideBondCandidates = [
+      {% for cand in work.disulfide_bond_candidates %}
+        ['{{ cand.1.id }}:{{ cand.0 }}', '{{ cand.2.id }}:{{ cand.0 }}', true],
+      {% endfor %}
+    ];
+
+    var histidines = [
+      {% for res in work.unknown_protonation_states %}
+        ['{{ res.id }}:{{ res.chain.id }}', false],
+      {% endfor %}
+    ];
+
+    var schemeId = NGL.ColormakerRegistry.addScheme(function (params) {
+      this.atomColor = function (atom) {
+
+        var color = 0x7FFFD4;  // aquamarine
+        histidines.forEach(function (item, index) {
+          if (item[0] === atom.resno + ':' + atom.chainname && item[1] && atom.atomname === 'CA')
+            color = 0xFF00FF;  // purple
+        });
+
+        return color;
+      }
+    });
+
+    var pdb_component = null;
+
+    function reload(comp, autoView = true) {
+      comp.removeAllRepresentations();
+      comp.addRepresentation('base');
+      comp.addRepresentation('cartoon', {colorScheme: schemeId});
+      comp.addRepresentation('ball+stick', {sele: 'ligand'});
+
+      histidines.map(function (item) {
+        if (item[1])
+          comp.addRepresentation('ball+stick', {sele: item[0] + '% or ' + item[0] + '%A'});
+      });
+
+      nonStandardResidues.map(function (item) {
+        if (item[1])
+          comp.addRepresentation('ball+stick', {sele: item[0] + '% or ' + item[0] + '%A'});
+      });
+
+      var atomPair = [];
+      disulfideBondCandidates.map(function (item) {
+        if (item[2]) {
+          comp.addRepresentation('ball+stick', {sele: item[0] + '% or ' + item[0] + '%A'});
+          comp.addRepresentation('ball+stick', {sele: item[1] + '% or ' + item[1] + '%A'});
+          atomPair.push([item[0] + '.SG', item[1] + '.SG']);
+        }
+      });
+      comp.addRepresentation('distance', {atomPair: atomPair});
+
+      if (autoView)
+        comp.autoView();
+    }
+
+    $('.cand').on('change', function (e) {
+      var checked = $(this).is(":checked");
+      var idx = $(this).val();
+      disulfideBondCandidates[idx][2] = checked;
+      reload(pdb_component, false);
+    });
+
+    $('.histidine').on('change', function (e) {
+      var checked = $(this).is(':checked');
+      var idx = $(this).val();
+      histidines[idx][1] = checked;
+      reload(pdb_component, false);
+    });
+
+    var nonStandardResidueInput = document.getElementsByName('non_standard_residue');
+    nonStandardResidueInput.forEach(function (nonStandardResidue, index) {
+      nonStandardResidue.addEventListener('change', function (e) {
+        nonStandardResidues[index][1] = e.target.checked;
+        reload(pdb_component, false);
+      });
+    });
+  </script>
+  {{ block.super }}
+{% endblock %}

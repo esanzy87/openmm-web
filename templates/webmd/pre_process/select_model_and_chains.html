@@ -1,0 +1,110 @@
+{% extends 'webmd/pre_process/base.html' %}
+
+
+{% block pre_process_control %}
+  <form method="POST">
+    {% csrf_token %}
+    <h3>Select model</h3>
+    <select class="form-control" name="selected_model" id="selected_model" title="selected_model">
+      {% for model in work.models %}
+        <option>{{ model }}</option>
+      {% endfor %}
+    </select><br/>
+
+    <h3>Select chains</h3>
+    <ul class="list-group">
+      {% for chain in work.chains %}
+        <li class="list-group-item">
+          <label style="width: 100%">
+            <input type="checkbox" name="selected_chains" value="{{ chain }}"
+                   checked/> {{ chain }}
+          </label>
+        </li>
+      {% endfor %}
+    </ul>
+    <br/>
+    {% if work.hetero_residues %}
+      <table class="table">
+        <thead>
+        <tr>
+          <th>Residue</th>
+          <th><span data-feather="eye"></span></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for res in work.hetero_residues %}
+          <tr>
+            <td>{{ res.0 }} {{ res.1 }} {{ res.2 }}</td>
+            <td><input type="checkbox" name="hetero_residues" checked/></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p>REMARK: Checking on <span data-feather="eye"></span> column, You can show or hide molecule on Visualization
+        pane.</p>
+      <p>REMARK: Heterogeneous residues will be deleted during this step.</p>
+    {% endif %}
+
+    <button class="btn btn-outline-primary">Next</button>
+  </form>
+{% endblock %}
+
+{% block custom_script %}
+  <script type="text/javascript">
+    var step = 'model';
+    var name = `{{ work.name }}`;
+    var heteroResidues = [
+      {% for res in work.hetero_residues %}
+        ['{{ res.0 }}', '{{ res.1 }}', true],
+      {% endfor %}
+    ];
+    var selectedModel = document.getElementById('selected_model');
+    var selectedChains = document.getElementsByName('selected_chains');
+    var heteroResiduesInput = document.getElementsByName('hetero_residues');
+
+    var schemeId = NGL.ColormakerRegistry.addScheme(function (params) {
+      this.atomColor = function (atom) {
+        return 0x7FFFD4  // aquamarine
+      };
+    });
+
+    var reload = function (component) {
+      component.removeAllRepresentations();
+      component.addRepresentation('base');
+
+      var model = Number(selectedModel.value) - 1;
+      selectedChains.forEach(function (selectedChain, index) {
+        if (selectedChain.checked) {
+          var sele = ':' + selectedChain.value + ' and /' + model;
+          component.addRepresentation('cartoon', {colorScheme: schemeId, sele: sele + ' and protein'});
+          heteroResidues.forEach(function (item, index) {
+            if (item[0] === selectedChain.value && item[2]) {
+              component.addRepresentation('ball+stick', {sele: item[1] + ':' + selectedChain.value + '/' + model});
+            }
+          });
+        }
+      });
+
+      component.autoView();
+    };
+
+    selectedModel.addEventListener('change', function (e) {
+      reload(window.pdb_component);
+    });
+
+    selectedChains.forEach(function (item, index) {
+      item.addEventListener('change', function (e) {
+        reload(window.pdb_component);
+      });
+    });
+
+    heteroResiduesInput.forEach(function (item, index) {
+      item.addEventListener('change', function (e) {
+        heteroResidues[index][2] = e.target.checked;
+        reload(window.pdb_component);
+      });
+    });
+  </script>
+
+  {{ block.super }}
+{% endblock %}

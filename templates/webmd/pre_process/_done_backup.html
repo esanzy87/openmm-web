@@ -1,0 +1,147 @@
+{% extends 'webmd/base.html' %}
+{% load static %}
+
+{% block webmd_content %}
+  <div class="row">
+
+    <div class="col-6" style="height: 650px; overflow-y: scroll;">
+      {% if work.hetero_residues %}
+      <!--
+      <script type="text/javascript" src="{% static 'libs/jsmol/JSmol.min.js' %}"></script>
+      <script type="text/javascript">
+        var jmolApplet0; // set up in HTML table, below
+        jmol_isReady = function (applet) {
+          jmolApplet0 = applet;
+          Jmol._getElement(applet, "appletdiv").style.border = "1px solid blue"
+        }
+
+        var Info = {
+          width: 300,
+          height: 300,
+          debug: false,
+          color: "0xFFFFFF",
+          addSelectionOptions: true,
+          serverURL: "http://chemapps.stolaf.edu/jmol/jsmol/php/jsmol.php",
+          use: "HTML5",
+          j2sPath: "/static/libs/jsmol/j2s",
+          readyFunction: jmol_isReady,
+          script: "set antialiasDisplay;load data/_ligand.pdb;set modelKitMode;set picking assignAtom_C;",
+          //jarPath: "java",
+          //jarFile: (useSignedApplet ? "JmolAppletSigned.jar" : "JmolApplet.jar"),
+          //isSigned: useSignedApplet,
+          disableJ2SLoadMonitor: true,
+          disableInitialConsole: true,
+          allowJavaScript: true
+          //defaultModel: "$dopamine",
+          //console: "none", // default will be jmolApplet0_infodiv
+        };
+        $(document).ready(function () {
+          $("#appdiv").html(Jmol.getAppletHtml("jmolApplet0", Info));
+          $("#jmolApplet0_query").hide();
+          $("#jmolApplet0_select").hide();
+          $("#jmolApplet0_submit").hide();
+        });
+
+        function addHydrogens () {
+          Jmol.script(jmolApplet0, "calculate hydrogens");
+        }
+
+        function savePDB () {
+          Jmol.script(jmolApplet0, "write _ligand_h.pdb");
+        }
+      </script>
+
+      <h3>Solvate and run praparation</h3>
+      <h4>Confirm ligand</h4>
+      <div id="appdiv"></div>
+      <button class="btn btn-sm btn-info" onclick="addHydrogens()">add hydrogens</button>&nbsp;
+      <button class="btn btn-sm btn-info" onclick="savePDB()">Download _ligand_h.pdb</button>
+      <br/>
+      <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <br/>
+        <br/>
+        <h4>Upload _ligand_h.pdb here</h4>
+        <input class="form-control" type="file" name="_ligand_h" /><br/>
+        <h4>Ligand net charge</h4>
+        <input class="form-control" type="number" value="0" name="ligand_net_charge" /><br/>
+        <h4>select cation</h4>
+        <ul class="list-group">
+          <li class="list-group-item">
+            <label><input type="radio" name="cation" value="Na+" checked /> Na+</label>
+          </li>
+          <li class="list-group-item">
+            <label><input type="radio" name="cation" value="K+" /> K+</label>
+          </li>
+        </ul><br/>
+
+        <h4>select anion</h4>
+        <ul class="list-group">
+          <li class="list-group-item">
+            <label><input type="radio" name="anion" value="Cl-" checked /> Cl-</label>
+          </li>
+        </ul><br/>
+        <a href="{% url 'webmd_pre_process_convert_non_standard_residues' work_id=work.id %}" class="btn btn-outline-primary">Previous</a>
+        <button class="btn btn-outline-primary">Done & run preparation</button>
+      </form>
+      -->
+      <div style="max-width: 300px">
+        <h3>Solvate and run praparation</h3>
+        <form method="POST">
+          {% csrf_token %}
+          select cation<br/>
+          <ul class="list-group">
+            <li class="list-group-item">
+              <label><input type="radio" name="cation" value="Na+" checked /> Na+</label>
+            </li>
+            <li class="list-group-item">
+              <label><input type="radio" name="cation" value="K+" /> K+</label>
+            </li>
+          </ul><br/>
+
+          select anion<br/>
+          <ul class="list-group">
+            <li class="list-group-item">
+              <label><input type="radio" name="anion" value="Cl-" checked /> Cl-</label>
+            </li>
+          </ul><br/>
+          <a href="{% url 'webmd_pre_process_convert_non_standard_residues' work_id=work.id %}" class="btn btn-outline-primary">Previous</a>
+          <button class="btn btn-outline-primary">Done & run preparation</button>
+        </form>
+      </div>
+      {% else %}
+      <div style="max-width: 300px">
+        <h3>Solvate and run praparation</h3>
+        <form method="POST">
+          {% csrf_token %}
+          select cation<br/>
+          <ul class="list-group">
+            <li class="list-group-item">
+              <label><input type="radio" name="cation" value="Na+" checked /> Na+</label>
+            </li>
+            <li class="list-group-item">
+              <label><input type="radio" name="cation" value="K+" /> K+</label>
+            </li>
+          </ul><br/>
+
+          select anion<br/>
+          <ul class="list-group">
+            <li class="list-group-item">
+              <label><input type="radio" name="anion" value="Cl-" checked /> Cl-</label>
+            </li>
+          </ul><br/>
+          <a href="{% url 'webmd_pre_process_convert_non_standard_residues' work_id=work.id %}" class="btn btn-outline-primary">Previous</a>
+          <button class="btn btn-outline-primary">Done & run preparation</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    <!--
+    <div class="col" style="max-width: 640px">
+      <div id="ngl-stage" style="width: 100%; height: 400px;"></div>
+      <pre id="pdb_content" style="font-size: 8px; height: 400px; overflow-y: scroll; display: none">{{ pdb_content }}</pre>
+    </div>
+    -->
+  </div>
+  <script type="text/javascript" src="{% static 'js/webmd/pre_process/done.js' %}"></script>
+{% endblock %}

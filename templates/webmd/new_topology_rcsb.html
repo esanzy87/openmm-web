@@ -1,0 +1,34 @@
+{% extends 'webmd/base.html' %}
+
+{% block webmd_content %}
+  <br/>
+  <div class="row">
+    <div class="col" style="max-width: 400px;">
+      <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="source_type" value="rcsb"/>
+
+        <label>Protein</label>
+        <input class="form-control" name="protein" type="text" placeholder="default: 1IYT"/>
+
+        <label>Work title</label>
+        <input class="form-control" name="name" type="text" placeholder="default: Protein file name"/><br/>
+
+        <label>Water box size</label>
+        <input class="form-control" name="buffer_size" type="number" value="10" title="Periodic box size"/><br/>
+
+        <label>Water box model</label>
+        <select class="form-control" name="solvent_model" title="Solvent model">
+          <option>SPCBOX</option>
+          <option selected>TIP3PBOX</option>
+          <option>TIP4PEWBOX</option>
+        </select><br/>
+
+        <label>Force field</label>
+        <input class="form-control" name="forcefield" type="text" disabled value="ff99sbildn" title="Force field"/><br/>
+        <button class="btn btn-outline-primary">Create</button>
+        <button class="btn btn-outline-secondary">Back</button>
+      </form>
+    </div>
+  </div>
+{% endblock %}

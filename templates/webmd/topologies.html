@@ -1,0 +1,164 @@
+{% extends 'webmd/base.html' %}
+{% load static %}
+
+{% block webmd_content %}
+  <br/>
+
+  <div class="row mb-2">
+    <div class="col d-flex justify-content-end">
+      <a
+        class="btn btn-primary btn-sm"
+        href="/topologies/new/"
+      >New</a>&ensp;
+
+      <a
+        class="btn btn-secondary btn-sm disabled"
+        href="/topologies/new/"
+      >Upload</a>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12">
+      <table class="table">
+        <colgroup>
+          <col style="width: 200px;" />
+          <col />
+          <col style="width: 500px;" />
+        </colgroup>
+        <thead>
+        <tr>
+          <th>Last modified</th>
+          <th>Subject</th>
+          <th>Action</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for work, last_modified in work_list %}
+          <tr>
+            <td>{{ last_modified }}</td>
+            <td>{{ work.name }}</td>
+            <td>
+              {% if not work.prepared %}
+              <a
+                href="/topologies/pre-process/step-1/?name={{ work.name }}"
+                class="btn btn-outline-secondary btn-sm"
+              >pre process</a>
+              {% else %}
+              <a
+                href="/topologies/structure/?name={{ work.name }}"
+                class="btn btn-outline-secondary btn-sm"
+              >view structure</a>
+
+              <button
+                class="btn btn-outline-secondary btn-sm"
+              >start simulation</button>
+
+              <button
+                class="btn btn-outline-secondary btn-sm"
+              >download zip</button>
+              {% endif %}
+
+              <button
+                class="btn btn-danger btn-sm"
+              >delete</button>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Run Min modal -->
+  <div class="modal fade" id="run_min_modal" tabindex="-1" role="dialog" aria-labelledby="run_min_modal_label"
+       aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="run_min_modal_label">Run minimization</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <label for="maxcyc1">Max iteration cycles for first minimization</label><br/>
+          <input class="form-control" type="number" step="100" id="maxcyc1" value="1000"/><br/>
+          <label for="maxcyc2">Max iteration cycles for second minimization</label><br/>
+          <input class="form-control" type="number" step="100" id="maxcyc2" value="2500"/><br/>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick="run_min()">Run</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Run Eq modal -->
+  <div class="modal fade" id="run_eq_modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="run_eq_modal_label">Run equilibration</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <label for="init_temp">Initial temperature (K)</label><br/>
+          <input type="number" class="form-control" value="0" id="init_temp"/><br/>
+          <label for="ref_temp">Reference temperature (K)</label><br/>
+          <input type="number" class="form-control" value="300" id="ref_temp"/><br/>
+          <label for="nstlim1">Simulation time in ps for first equilibration</label><br/>
+          <input type="range" class="form-control" step="500" min="500" max="10000" value="5000"
+                 id="nstlim1"/>
+          <span id="nstlim1_val">10 ps</span><br/>
+          <label for="nstlim2">Simulation time in ps for second equilibration</label><br/>
+          <input type="range" class="form-control" step="500" min="5000" max="100000" value="50000"
+                 id="nstlim2"/>
+          <span id="nstlim2_val">100 ps</span><br/>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick="run_eq()">Run</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Run MD modal -->
+  <div class="modal fade" id="run_md_modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="run_md_modal_label">Run MD simulation</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <label for="ntb">Ensemble method</label>
+          <select class="form-control" id="ntb">
+            <option value="2">NPT: fix Pressure and Temperature</option>
+            <option value="1">NVT: fix Volume and Temperature</option>
+          </select><br/>
+          <label for="md_ref_temp">Reference temperature (K)</label><br/>
+          <input type="number" class="form-control" min="0" step="1" value="300" id="md_ref_temp"/><br/>
+          <label for="nstlim">Simulation time in ps</label><br/>
+          <input type="range" class="form-control" step="25000" min="25000" max="500000" value="100000"
+                 id="nstlim"/>
+          <span id="nstlim_val">200 ps</span><br/>
+          <label for="pressure">Pressure (NPT only)</label>
+          <input type="number" class="form-control" step="0.1" value="1.0" id="pressure"/><br/>
+          <label for="repeat">Repeat count</label>
+          <input type="number" class="form-control" min="1" max="10" value="1" id="repeat"/><br/>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick="run_md()">Run</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

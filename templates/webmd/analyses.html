@@ -1,0 +1,180 @@
+{% extends 'webmd/base.html' %}
+{% load static %}
+
+{% block webmd_content %}
+    <div class="row">
+        <div class="col-12" style="padding-bottom: 8px;">
+            <h2>
+                Analyses
+                <div class="float-right">
+                    <a class="btn btn-outline-primary" href="{% url 'webmd_work_list' %}">Back to work list</a>
+                </div>
+            </h2>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-6">
+            <div id="dygraph" style="width: 100%; height: 500px"></div>
+        </div>
+        <div class="col-6">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% if not analyses %}
+                    <tr>
+                        <td colspan="3" style="text-align: center">No analyses found</td>
+                    </tr>
+                {% else %}
+                    {% for serial, analysis in analyses.items %}
+                        <tr>
+                            <td>{{ serial }}</td>
+                            <td>{{ analysis.0 }}
+                                <input type="hidden"
+                                       id="analysis_{{ serial }}"
+                                       value="{{ analysis.1 }}"
+                                       data-title="{{ analysis.0 }}"/>
+                            </td>
+                            <td>{{ analysis.2 }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info anal_result_btn"
+                                        onclick="drawGraph({{ serial }})">result
+                                </button>
+                                <button class="btn btn-sm btn-danger"
+                                        onclick="deleteAnalysis({{ work.id }}, {{ serial }})">delete
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+                </tbody>
+            </table>
+            <a href="{% url 'webmd_add_new_analysis' work_id=work.id %}" class="btn btn-success">Add new analysis</a>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            'use strict';
+
+            window.drawGraph = function (serial) {
+                var $analysis = $('#analysis_' + serial);
+
+                var method = $analysis.data('title');
+                var output = JSON.parse($analysis.val());
+
+                var i = 0;
+                var csv = '';
+                if (method === 'rmsd') {
+                    csv = 'time_ps,distance\n';
+                    for (i = 0; i < output.length; i++) {
+                        csv += (5*i) + ',' + output[i][0] + '\n';
+                    }
+
+                    new Dygraph(document.getElementById('dygraph'), csv, {
+                        title: 'Root Mean Square Deviation (RMSD)',
+                        xlabel: 'Time (ps)',
+                        ylabel: 'Distance (Å)'
+                    });
+                }
+
+                else if (method === 'rmsf') {
+                    csv = 'resind,distance\n';
+                    for (i = 0; i < output.length; i++) {
+                        csv += (i+1) + ',' + output[i][1] + '\n';
+                    }
+
+                    new Dygraph(document.getElementById('dygraph'), csv, {
+                        title: 'Root Mean Square Fluctuation (RMSF)',
+                        xlabel: 'Residue Index',
+                        ylabel: 'Distance (Å)'
+                    });
+                }
+
+                else if (method === 'radgyr') {
+                    csv = 'time_ps,radius\n';
+                    for (i = 0; i < output.length; i++) {
+                        csv += (5*i) + ',' + output[i][0] + '\n';
+                    }
+
+                    new Dygraph(document.getElementById('dygraph'), csv, {
+                        title: 'Radius of Gyration (RADGYR)',
+                        xlabel: 'Time (ps)',
+                        ylabel: 'Radius (radian)'
+                    });
+                }
+
+                else if (method === 'gsolv') {
+                    csv = 'time_ps,ΔGsolv\n';
+                    for (i = 0; i < output.length; i++) {
+                        var line = output[i];
+                        if (Number(line[0]) === 0)
+                            csv += '0,' + line[1] + '\n';
+                        else
+                            csv += (Number(line[0])+1)*5 + ',' + line[1] + '\n';
+                    }
+
+                    new Dygraph(document.getElementById('dygraph'), csv, {
+                        title: 'Solvation Free Energy',
+                        xlabel: 'Time (ps)',
+                        ylabel: '&Delta;G<sub>solv</sub> (kcal/mol)'
+                    });
+                }
+
+                else if (method === 'sasa') {
+                    csv = 'time_ps,total_sasa\n';
+                    for (i = 0; i < output.length; i++) {
+                        csv += 5 * (i + 1) + ',' + output[i][0] + '\n'
+                    }
+
+                    new Dygraph(document.getElementById('dygraph'), csv, {
+                        title: 'Solvent Accessible Surface Area (SASA)',
+                        xlabel: 'Time (ps)',
+                        ylabel: 'Total SASA (nm)^2'
+                    });
+                }
+
+                else if (method === 'eu') {
+                    csv = 'time_ps,potential_energy\n';
+                    for (i = 0; i < output.length; i++) {
+                        csv += output[i][0] + ',' + output[i][1] + '\n';
+                    }
+
+                    new Dygraph(document.getElementById('dygraph'), csv, {
+                        title: 'Protein internal energy (Eu)',
+                        xlabel: 'Time (ps)',
+                        ylabel: 'Potential energy (kcal/mol)'
+                    });
+                }
+            };
+
+            window.deleteAnalysis = function (work_id, anal_serial) {
+                var answer = confirm('Are you sure to delete this analysis?');
+
+                if (answer) {
+                    axios.post('/webmd/works/' + work_id + '/analyses/delete/', {
+                        anal_serial: anal_serial
+                    }).then(function (response) {
+                        if (response.data.result === 'success') {
+                            window.location.reload();
+                        }
+                    });
+                }
+            };
+
+            var $anal_result_btn = $('.anal_result_btn');
+
+            $(document).ready(function () {
+                if ($anal_result_btn) {
+                    $anal_result_btn[0].click();
+                }
+            });
+        })();
+    </script>
+{% endblock %}

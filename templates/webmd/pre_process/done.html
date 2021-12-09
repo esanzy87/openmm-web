@@ -1,0 +1,34 @@
+{% extends 'webmd/base.html' %}
+{% load static %}
+
+{% block webmd_content %}
+  <div class="row">
+
+    <div class="col-12">
+      <div style="max-width: 400px">
+        <h3>Solvate and run praparation</h3>
+        <form method="POST">
+          {% csrf_token %}
+          select cation<br/>
+          <ul class="list-group">
+            <li class="list-group-item">
+              <label><input type="radio" name="cation" value="Na+" checked /> Na+</label>
+            </li>
+            <li class="list-group-item">
+              <label><input type="radio" name="cation" value="K+" /> K+</label>
+            </li>
+          </ul><br/>
+
+          select anion<br/>
+          <ul class="list-group">
+            <li class="list-group-item">
+              <label><input type="radio" name="anion" value="Cl-" checked /> Cl-</label>
+            </li>
+          </ul><br/>
+          <a href="/topologies/pre-process/step-2/?name={{ work.name }}" class="btn btn-outline-primary">Previous</a>
+          <button class="btn btn-outline-primary">Done & run preparation</button>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}

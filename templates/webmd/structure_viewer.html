@@ -1,0 +1,329 @@
+{% extends 'webmd/base.html' %}
+{% load static %}
+{% block customstyle %}
+  {{ block.super }}
+  <style>
+      .list-group-item {
+          padding: .5rem .75rem;
+      }
+  </style>
+{% endblock %}
+
+{% block webmd_content %}
+  <div class="row">
+    <div class="col-12">
+      <h2>Structure viewer</h2>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col h-100" style="max-width: 800px;">
+      <div class="loader" id="spinner" style="display: none"></div>
+      <div id="progress"></div>
+      <div id="ngl-stage" style="width: 100%; height: 500px;"></div>
+      {% if request.GET.step and request.GET.step|slice:':2' == 'md' and request.GET.step != 'md0' %}
+        <form action="{% url 'webmd_get_pdb_at_frame' work_id=work.id md_serial=request.GET.step|slice:'2:' %}">
+          <input class="form-control" type="range" min="0" max="199" name="frame" id="traj_frame" value="0"
+                 title="traj-frames" disabled/>
+          <button class="btn btn-primary">Download PDB</button>
+        </form>
+      {% endif %}
+      <div id="pdb_content" style="display: none">{{ pdb_content }}</div>
+    </div>
+    <div class="col-2" style="min-width: 300px">
+      <ul class="list-group list-group-flush" id="structure_viewer_select_state"
+          style="max-height: 360px; overflow-y: scroll;">
+        <li class="list-group-item {% if not request.GET.step or request.GET.step == 'init' %}active{% endif %}">
+          <a
+            href="?step=init">initial state</a></li>
+        {% if work.status.enum >= 3 %}
+          <li class="list-group-item {% if request.GET.step == 'min1' %}active{% endif %}"><a href="?step=min1">first
+            minimization state</a></li>
+          <li class="list-group-item {% if request.GET.step == 'min2' %}active{% endif %}"><a href="?step=min2">second
+            minimization state</a></li>
+        {% endif %}
+        {% if work.status.enum >= 5 %}
+          <li class="list-group-item {% if request.GET.step == 'eq1' %}active{% endif %}"><a href="?step=eq1">first
+            equilibration state</a></li>
+          <li class="list-group-item {% if request.GET.step == 'eq2' %}active{% endif %}"><a href="?step=eq2">second
+            equilibration state</a></li>
+        {% endif %}
+        {% if work.status.enum >= 7 %}
+          <li class="list-group-item {% if request.GET.step == 'md' %}active{% endif %}">
+            <a href="?step=md0">MD state</a></li>
+        {% endif %}
+        {% for md_serial in work.completed_md_serials %}
+          <li class="list-group-item {% if request.GET.step == 'md' %}active{% endif %}">
+            <a href="?step=md{{ md_serial }}">MD #{{ md_serial }} state</a></li>
+        {% endfor %}
+      </ul>
+      <br/>
+      <table>
+        <tr>
+          <td>Style</td>
+          <td><select id="repr" class="form-control">
+            <option selected>cartoon</option>
+            <option>ball+stick</option>
+            <option>spacefill</option>
+            <option>surface</option>
+          </select></td>
+        </tr>
+        {% if not request.GET.step or request.GET.step != 'md0' %}
+          <tr>
+            <td>Display water&nbsp;&nbsp;</td>
+            <td style="padding-top: 8px">
+              <label class="switch" style="margin-bottom: 0">
+                <input type="checkbox" id="display_water">
+                <span class="slider round"></span>
+              </label>
+            </td>
+          </tr>
+        {% endif %}
+        {% if request.GET.step and request.GET.step|slice:':2' == 'md' %}
+          <tr>
+            <td>Play movie&nbsp;&nbsp;</td>
+            <td style="padding-top: 8px">
+              <label class="switch" style="margin-bottom: 0">
+                <input type="checkbox" id="play_movie" disabled>
+                <span class="slider round"></span>
+              </label><br/>
+              (<span id="sim_time">5</span> ps)
+            </td>
+          </tr>
+        {% endif %}
+        <tr>
+          <td colspan="2">Focus</td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <input class="form-control" type="range" min="0" max="100" value="0" id="focus"/>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <input type="hidden" id="work_id" value="{{ work.id }}"/>
+    <input type="hidden" id="step"
+           value="{% if not request.GET.step %}init{% else %}{{ request.GET.step }}{% endif %}"/>
+  </div>
+{% endblock %}
+
+{% block custom_script %}
+  <script>
+    (function ($, NGL) {
+      'use strict';
+
+      var stage = null;
+      var workId = $('#work_id').val();
+      var step = $('#step').val();
+
+      var $play_movie = $('#play_movie');
+      var $traj_frame = $('#traj_frame');
+      var $spinner = $('#spinner');
+      var $progress = $('#progress');
+      var $display_distance = $('#display_distance');
+      var $distance_from = $('#distance_from');
+      var $distance_to = $('#distance_to');
+      var $repr = $('#repr');
+      // var $show_elements = $('#show_elements');
+
+      var schemeId = NGL.ColormakerRegistry.addScheme(function (params) {
+        this.atomColor = function (atom) {
+          return 0x7FFFD4  // aquamarine
+        }
+      });
+
+      var state = {
+        displayWater: false,
+        playMovie: false,
+        displayDistance: false,
+        currentRepr: $('#repr option:selected').text(),
+        currentComponent: null
+      };
+
+      $repr.on('change', function () {
+        state.currentRepr = $('#repr option:selected').text();
+        reloadRepr(state.currentComponent);
+      });
+
+      var traj = null;
+      var trajectory = null;
+
+      function setFocus(stage, focus) {
+        stage.setFocus(focus);
+      }
+
+      function getTraj(comp, md_serial) {
+        $spinner.show();
+        return axios.get('/webmd/works/' + workId + '/traj/' + md_serial + '/traj-info')
+          .then(function (response) {
+            $traj_frame.prop('max', response.data.frames - 1);
+            return response.data
+          })
+          .then(function (trajInfo) {
+            return axios.get('/webmd/works/' + workId + '/traj/' + md_serial + '/', {
+              responseType: 'arraybuffer',
+              onDownloadProgress: function (e) {
+                $progress.html(Math.floor(e.loaded / trajInfo.size * 100) + '%');
+              }
+            })
+              .then(function (response) {
+                traj = new Blob([response.data], {type: 'application/octet-stream'});
+                return NGL.autoLoad(traj, {ext: 'dcd'});
+              })
+              .then(function (frames) {
+                if (comp.trajList.length === 0) {
+                  var trajComp = comp.addTrajectory(frames, {
+                    removePbc: true,
+                    centerPbc: true,
+                    superpose: true
+                  });
+
+                  var numFrames = frames.coordinates.length;
+                  // var player = trajComp.trajectory.player;
+
+                  trajComp.trajectory.player.step = 1;
+                  trajComp.trajectory.player.timeout = 100;
+
+                  trajComp.signals.frameChanged.add(function (currentFrame) {
+                    if (state.playMovie) {
+                      $traj_frame.val(currentFrame + 1);
+                      $('#sim_time').html((currentFrame + 1) * 5);
+
+                      if (currentFrame > (numFrames - 2)) {
+                        $play_movie.trigger('click');
+                      }
+                    }
+                  });
+                }
+
+                trajectory = comp.trajList[0].trajectory;
+                updatePlayMovieState();
+
+                $play_movie.removeAttr('disabled');
+                $traj_frame.removeAttr('disabled');
+                $spinner.hide();
+                $progress.hide();
+
+                return trajComp;
+              });
+          });
+      }
+
+      function setTrajFrame(frameNum) {
+        // console.log(frameNum);
+        if (trajectory) {
+          trajectory.player.traj.setFrame(frameNum);
+          trajectory.player.pause();
+        } else {
+          // stage.removeAllComponents();
+          // reload(frameNum);
+        }
+      }
+
+      function updatePlayMovieState() {
+        if (trajectory !== null) {
+          if (state.playMovie) {
+            trajectory.player.play();
+          } else {
+            trajectory.player.pause();
+          }
+        } else {
+          alert('Please wait until trajectory downloaded.');
+        }
+      }
+
+      function reloadRepr(comp) {
+        comp.removeAllRepresentations();
+        comp.addRepresentation('base');
+        if (state.currentRepr === 'cartoon' || state.currentRepr === 'surface') {
+          comp.addRepresentation(state.currentRepr, {sele: 'protein', colorScheme: schemeId});
+        } else {
+          comp.addRepresentation(state.currentRepr, {sele: 'protein'});
+        }
+
+        comp.addRepresentation('ball+stick', {sele: 'ligand'});
+
+
+        if (state.displayWater) {
+          comp.addRepresentation('ball+stick', {sele: 'water', scale: 0.5, opacity: 0.6});
+          // comp.addRepresentation('ball+stick', {sele: 'ion', scale: 3});
+        }
+
+        if (state.displayDistance) {
+          comp.addRepresentation('distance', {
+            atomPair: [[
+              $distance_from.val() + '.CA', $distance_to.val() + '.CA'
+            ]]
+          });
+        }
+
+        comp.autoView();
+      }
+
+
+      function reload(frame) {
+        if (frame === undefined)
+          frame = 0;
+
+        var pdb = new Blob([$('#pdb_content').html()], {type: 'text/plain'});
+        stage.loadFile(pdb, {ext: 'pdb'}).then(function (comp) {
+
+          state.currentComponent = comp;
+          reloadRepr(comp);
+
+          $('#display_water').on('change', function (e) {
+            state.displayWater = e.target.checked;
+            reloadRepr(comp);
+          });
+
+          if (step.indexOf('md') > -1) {
+            var md_serial = step.split('md')[1];
+            if (!trajectory) {
+              getTraj(comp, md_serial).then(function (trajComp) {
+                trajComp.trajectory.setFrame(frame);
+              });
+            }
+
+            $play_movie.on('change', function (e) {
+              state.playMovie = e.target.checked;
+              updatePlayMovieState();
+            });
+
+            $traj_frame.on('change', function (e) {
+              if (!state.playMovie) {
+                setTrajFrame(e.target.value);
+                $('#sim_time').html((Number(e.target.value) + 1) * 5);
+              }
+
+              if (state.playMovie) {
+                $play_movie.trigger('click');
+              }
+            });
+          }
+
+          $display_distance.on('change', function (e) {
+            state.displayDistance = e.target.checked;
+            reloadRepr(comp);
+          });
+        });
+      }
+
+      $(document).ready(function () {
+        stage = new NGL.Stage('ngl-stage');
+
+        window.addEventListener("resize", function (e) {
+          stage.handleResize()
+        }, false);
+
+        // stage.setParameters({backgroundColor: '#efefef', clipNear: 42, clipFar: 58});
+        stage.viewer.scene.background = new THREE.Color(0xefefef);
+        reload();
+      });  // $(document).ready
+
+      $('#focus').on('change', function (e) {
+        var focus_value = Number(e.target.value);
+        stage.setFocus(focus_value);
+      });
+    })($, NGL);
+  </script>
+  {{ block.super }}
+{% endblock %}
