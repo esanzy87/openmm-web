@@ -27,4 +27,6 @@ urlpatterns = [
     path('topologies/pre-process/step-2/', core.pre_process_convert_non_standard_residues),
     path('topologies/pre-process/step-3/', core.pre_process_done),
     path('topologies/structure/', core.topology_structure_viewer),
+    path('topologies/create-simulation/', core.make_simulation_from_topology),
+    path('simulations/run/', core.simulation_run),
 ]

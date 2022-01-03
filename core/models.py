@@ -1,7 +1,7 @@
 import os
-import json
 import shutil
 import pickle
+import yaml
 import pdbutil
 import smmd
 from typing import Optional
@@ -57,26 +57,30 @@ class Topology:
     @classmethod
     def load(cls, name):
         work_dir = Path(f'topologies/{name}')
-        schema_file_path = work_dir / 'schema.json'
+        model_file_path = work_dir / 'model.yml'
 
-        if not os.path.exists(schema_file_path):
+        if not os.path.exists(model_file_path):
             raise AttributeError('Invalid topology name')
 
-        with open(schema_file_path, 'r') as schema_file:
-            schema = json.load(schema_file)
+        with open(model_file_path, 'r') as schema_file:
+            schema = yaml.load(schema_file, Loader=yaml.FullLoader)
 
         return cls(**schema)
 
     def save(self):
-        schema_file_path = self.work_dir / 'schema.json'
-        with open(schema_file_path, 'w') as schema_file:
-            json.dump(self.dict(), schema_file)
+        model_file_path = self.work_dir / 'model.yml'
+        with open(model_file_path, 'w') as schema_file:
+            yaml.dump(self.dict(), schema_file)
 
     def initialize(self):
         import requests
+        if os.path.exists(self.work_dir):
+            raise AttributeError('Topology name already taken')
+
         response = requests.get('https://file.rcsb.org/download/%s.pdb' % self.protein.lower())
         if response.status_code == 404:
             raise AttributeError('RCSB code not valid')
+        
         os.makedirs(self.work_dir)
         with open(self.work_dir / 'model.pdb', 'w') as f:
             f.write(response.content.decode())
@@ -175,6 +179,223 @@ class Topology:
             cation='Na+',  # cation=cation,
             anion='Cl-',
         )
+
+
+class Simulation:
+    name: Optional[str]
+    topology: Optional[Topology]
+    minimizations: Optional[list]
+    equilibrations: Optional[list]
+    productions: Optional[list]
+
+    def __init__(self, name, topology=None, minimizations=None, equilibrations=None, productions=None):
+        self.name = name
+        self.topology = None
+        if topology:
+            self.topology = topology
+        self.minimizations = []
+        if minimizations:
+            self.minimizations = minimizations
+        self.equilibrations = []
+        if equilibrations:
+            self.equilibrations = equilibrations
+        self.productions = []
+        if productions:
+            self.productions = productions
+
+    @property
+    def work_dir(self):
+        return Path(f'simulations/{self.name}')
+
+    def dict(self):
+        return {
+            'name': self.name,
+            'topology': self.topology.dict(),
+            'minimizations': self.minimizations,
+            'equilibrations': self.equilibrations,
+            'productions': self.productions,
+        }
+
+    @classmethod
+    def load(cls, name):
+        work_dir = Path(f'simulations/{name}')
+        protocols_file_path = work_dir / 'protocols.yml'
+
+        if not os.path.exists(protocols_file_path):
+            raise AttributeError('Invalid simulation name')
+
+        with open(protocols_file_path, 'r') as protocols_file:
+            protocol = yaml.load(protocols_file, Loader=yaml.FullLoader)
+
+        return cls(
+            name=protocol['name'],
+            topology=Topology.load(name=protocol['topology']['name']),
+            minimizations=protocol['minimizations'],
+            equilibrations=protocol['equilibrations'],
+            productions=protocol['productions'],
+        )
+    
+    def initialize(self, topology_name):
+        if os.path.exists(self.work_dir):
+            raise AttributeError('Simulation name already taken')
+
+        topology_file_path = f'topologies/{topology_name}/prep/model.xml'
+        if not os.path.exists(topology_file_path):
+            raise AttributeError('Invalid topology name')
+
+        os.makedirs(self.work_dir, exist_ok=True)
+        shutil.copytree(f'topologies/{topology_name}/prep', self.work_dir / 'prep')
+        
+        self.topology = Topology.load(name=topology_name)
+        self.add_minimization(1000, 10.0)
+        self.add_minimization(2500)
+        self.add_equilibration(10000, restraint_weight=10.0)
+        self.add_equilibration(100000)
+        self.add_production(100000)
+        self.add_production(100000)
+        self.add_production(100000)
+        self.add_production(100000)
+        self.save()
+
+    def save(self):
+        protocols_file_path = self.work_dir / 'protocols.yml'
+        with open(protocols_file_path, 'w') as protocols_file:
+            yaml.dump(self.dict(), protocols_file)
+
+    def add_minimization(self, steps, restraint_weight=None):
+        self.minimizations.append({
+            'steps': steps,
+            'restraint_weight': restraint_weight,
+        })
+        self.save()
+    
+    def remove_last_minimization(self):
+        idx = len(self.minimizations)
+        self.minimizations = self.minimizations[:-1]
+        shutil.rmtree(self.work_dir / f'min/{idx}', ignore_errors=True)
+        self.save()
+    
+    def add_equilibration(self, steps, initial_temperature=0.0, reference_temperature=300, step_size=0.002, ensemble='NVT', restraint_weight=None):
+        self.equilibrations.append({
+            'steps': steps,
+            'initial_temperature': initial_temperature,
+            'reference_temperature': reference_temperature,
+            'step_size': step_size,
+            'ensemble': ensemble,
+            'restraint_weight': restraint_weight,
+        })
+        self.save()
+
+    def remove_last_equilibration(self):
+        idx = len(self.equilibrations)
+        self.equilibrations = self.equilibrations[:-1]
+        shutil.rmtree(self.work_dir / f'eq/{idx}', ignore_errors=True)
+        self.save()
+
+    def add_production(self, steps, reference_temperature=300, reference_pressure=None, step_size=0.002, ensemble='NVT'):
+        self.productions.append({
+            'steps': steps,
+            'reference_temperature': reference_temperature,
+            'reference_pressure': reference_pressure,
+            'step_size': step_size,
+            'ensemble': ensemble,
+        })
+        self.save()
+
+    def remove_last_production(self):
+        idx = len(self.productions)
+        self.productions = self.productions[:-1]
+        shutil.rmtree(self.work_dir / f'md/{idx}', ignore_errors=True)
+        self.save()
+
+    def run(self):
+        for idx, min in enumerate(self.minimizations, 1):
+            if os.path.exists(self.work_dir / f'min/{idx}/min.npz'):
+                continue
+            os.makedirs(self.work_dir / f'min/{idx}', exist_ok=True)
+            if idx == 1:
+                t, st = smmd.run_min(
+                    pdb_source=str(self.work_dir / 'prep/model_solv.pdb'),
+                    topology_source=str(self.work_dir / 'prep/model.xml'),
+                    maxcyc=min['steps'],
+                    state_file=self.work_dir / f'min/{idx}/min.npz',
+                    restraint_weight=min['restraint_weight'],
+                )
+            else:
+                t, st = smmd.run_min(
+                    pdb_source=str(self.work_dir / 'prep/model_solv.pdb'),
+                    topology_source=str(self.work_dir / 'prep/model.xml'),
+                    maxcyc=min['steps'],
+                    state_file=self.work_dir / f'min/{idx}/min.npz',
+                    restraint_weight=min['restraint_weight'],
+                    reference=self.work_dir / f'min/{idx-1}/min.npz'
+                )
+        
+        for idx, eq in enumerate(self.equilibrations, 1):
+            if os.path.exists(self.work_dir / f'eq/{idx}/eq.npz'):
+                continue
+            os.makedirs(self.work_dir / f'eq/{idx}', exist_ok=True)
+            if idx == 1:
+                t, st = smmd.run_eq(
+                    pdb_source=str(self.work_dir / 'prep/model_solv.pdb'),
+                    topology_source=str(self.work_dir / 'prep/model.xml'),
+                    nstlim=eq['steps'],
+                    dt=eq['step_size'],
+                    out_file=str(self.work_dir / f'eq/{idx}/eq.out'),
+                    state_file=self.work_dir / f'eq/{idx}/eq.npz',
+                    reference=self.work_dir / f'min/{len(self.minimizations)}/min.npz',
+                    tempi=eq['initial_temperature'],
+                    temp0=eq['reference_temperature'],
+                    ntb=1 if eq['ensemble'] == 'NVT' else 2,
+                    restraint_weight=eq['restraint_weight'],
+                )
+            else:
+                t, st = smmd.run_eq(
+                    pdb_source=str(self.work_dir / 'prep/model_solv.pdb'),
+                    topology_source=str(self.work_dir / 'prep/model.xml'),
+                    nstlim=eq['steps'],
+                    dt=eq['step_size'],
+                    out_file=str(self.work_dir / f'eq/{idx}/eq.out'),
+                    state_file=self.work_dir / f'eq/{idx}/eq.npz',
+                    reference=self.work_dir / f'eq/{idx-1}/eq.npz',
+                    temp0=eq['reference_temperature'],
+                    ntb=1 if eq['ensemble'] == 'NVT' else 2,
+                    restraint_weight=eq['restraint_weight'],
+                )
+            
+        for idx, md in enumerate(self.productions, 1):
+            if os.path.exists(self.work_dir / f'eq/{idx}/md.dcd'):
+                continue
+            os.makedirs(self.work_dir / f'md/{idx}', exist_ok=True)
+            if idx == 1:
+                t, st = smmd.run_md(
+                    pdb_source=str(self.work_dir / 'prep/model_solv.pdb'),
+                    topology_source=str(self.work_dir / 'prep/model.xml'),
+                    nstlim=md['steps'],
+                    dt=md['step_size'],
+                    out_file=str(self.work_dir / f'md/{idx}/md.out'),
+                    traj_file=self.work_dir / f'md/{idx}/md.dcd',
+                    state_file=self.work_dir / f'md/{idx}/md.npz',
+                    reference=self.work_dir / f'eq/{len(self.equilibrations)}/eq.npz',
+                    temp0=md['reference_temperature'],
+                    ntb=1 if md['ensemble'] == 'NVT' else 2,
+                    pres0=md['reference_pressure'],
+                )
+            else:
+                t, st = smmd.run_md(
+                    pdb_source=str(self.work_dir / 'prep/model_solv.pdb'),
+                    topology_source=str(self.work_dir / 'prep/model.xml'),
+                    nstlim=md['steps'],
+                    dt=md['step_size'],
+                    out_file=str(self.work_dir / f'md/{idx}/md.out'),
+                    traj_file=self.work_dir / f'md/{idx}/md.dcd',
+                    state_file=self.work_dir / f'md/{idx}/md.npz',
+                    reference=self.work_dir / f'md/{idx-1}/md.npz',
+                    temp0=md['reference_temperature'],
+                    ntb=1 if md['ensemble'] == 'NVT' else 2,
+                    pres0=md['reference_pressure'],
+                )
+
     #
     # def run_min(self, maxcyc1, maxcyc2):
     #     from utils.smmd import submit_batch, webmd_min

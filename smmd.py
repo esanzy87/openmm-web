@@ -194,7 +194,7 @@ def run_min(topology_source, pdb_source, maxcyc, state_file, restraint_weight=No
     simulation = app.Simulation(pdb.topology, system, integrator, platform)
 
     if reference:
-        _ref = np.load(reference)
+        _ref = np.load(reference, allow_pickle=True)
         simulation.context.setPositions(_ref['Positions'])
         simulation.context.setPeriodicBoxVectors(*_ref['PeriodicBoxVectors'])
     else:
@@ -255,7 +255,7 @@ def run_eq(topology_source, pdb_source, nstlim, out_file, state_file, reference,
 
     platform = get_platform()
     simulation = app.Simulation(pdb.topology, system, integrator, platform)
-    _ref = np.load(reference)
+    _ref = np.load(reference, allow_pickle=True)
     simulation.context.setPositions(_ref['Positions'])
     simulation.context.setPeriodicBoxVectors(*_ref['PeriodicBoxVectors'])
     if 'Velocities' in _ref:
@@ -323,7 +323,7 @@ def run_md(topology_source, pdb_source, nstlim, out_file, traj_file, state_file,
 
     platform = get_platform()
     simulation = app.Simulation(pdb.topology, system, integrator, platform)
-    _ref = np.load(reference)
+    _ref = np.load(reference, allow_pickle=True)
     simulation.context.setPositions(_ref['Positions'])
     simulation.context.setPeriodicBoxVectors(*_ref['PeriodicBoxVectors'])
     simulation.context.setVelocities(_ref['Velocities'])
@@ -363,17 +363,17 @@ def webmd_prep(work_dir, buffer_size=10.0, ff_name='ff99SBildn', wm_name='TIP3PB
     mkdir(base_dir)
 
     # write input file
-    with open(os.path.join(base_dir, 'input.json'), 'w') as f:
-        json.dump({
-            # 'work_dir': work_dir,
-            'solvent_model': wm_name,
-            'buffer_size': buffer_size,
-            'cation': cation,
-            'anion': anion,
-        }, f, indent=2)
+    # with open(os.path.join(base_dir, 'input.json'), 'w') as f:
+    #     json.dump({
+    #         # 'work_dir': work_dir,
+    #         'solvent_model': wm_name,
+    #         'buffer_size': buffer_size,
+    #         'cation': cation,
+    #         'anion': anion,
+    #     }, f, indent=2)
 
     run_prep(pdb_source=os.path.join(work_dir, 'model.pdb'),
-             pdb_target=os.path.join(base_dir, 'model_solv.pdb.gz'),
+             pdb_target=os.path.join(base_dir, 'model_solv.pdb'),
              topology_target=os.path.join(base_dir, 'model.xml'),
              buffer_size=buffer_size,
              force_field_name=ff_name,

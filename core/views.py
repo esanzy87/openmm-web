@@ -3,7 +3,7 @@ import time
 from django.http.response import HttpResponse
 from django.shortcuts import render, redirect, reverse
 from django.contrib import messages
-from core.models import Topology
+from core.models import Topology, Simulation
 
 
 # Create your views here.
@@ -140,3 +140,19 @@ def topology_structure_viewer(request):
         'pdb_content': pdb_object.pdb_string,
         'work': topology,
     })
+
+
+def make_simulation_from_topology(request):
+    from asgiref.sync import sync_to_async
+    name = request.GET.get('name')
+    simulation = Simulation(name=name)
+    simulation.initialize(topology_name=name)
+    sync_to_async(simulation.run, thread_sensitive=True)
+    return redirect('/topologies/')
+
+
+def simulation_run(request):
+    name = request.GET.get('name')
+    simulation = Simulation.load(name=name)
+    simulation.run()
+    return redirect('/topologies/')
